@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Картотека Винодельни</title>
+  <style>
+    /* Общие стили */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Georgia', serif;
+      background-color: #f8f4ed;
+      color: #3b2e2a;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+      position: relative;
+    }
+    /* Кнопка добавления */
+    .add-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 60px;
+      height: 60px;
+      border: none;
+      border-radius: 50%;
+      background-color: #7f142e;
+      color: #fff;
+      font-size: 32px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transition: background-color 0.3s, width 0.3s, height 0.3s;
+      z-index: 1000;
+    }
+    .add-btn:hover {
+      background-color: #5b0a1c;
+    }
+    /* Сетка карточек */
+    .cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      background-color: #eae1d9;
+      transition: height 0.3s;
+    }
+    .card-content {
+      padding: 16px;
+      flex-grow: 1;
+    }
+    .card-content p {
+      margin: 8px 0;
+      line-height: 1.4;
+    }
+    .card-actions {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px 16px;
+    }
+    .card-actions button {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 18px;
+      transition: color 0.2s;
+    }
+    .card-actions .edit-btn:hover {
+      color: #7f142e;
+    }
+    .card-actions .delete-btn:hover {
+      color: #c1272d;
+    }
+    /* Модальное окно формы */
+    .form-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s;
+      z-index: 1001;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .wine-form {
+      background-color: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      animation: slideIn 0.3s;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .wine-form h2 {
+      margin-top: 0;
+      font-family: 'Palatino Linotype', serif;
+      font-size: 24px;
+      color: #7f142e;
+    }
+    .wine-form label {
+      display: block;
+      margin: 12px 0 4px;
+      font-weight: bold;
+    }
+    .wine-form input[type="file"],
+    .wine-form input[type="number"],
+    .wine-form input[type="date"],
+    .wine-form textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .wine-form textarea {
+      resize: vertical;
+      height: 100px;
+    }
+    .form-actions {
+      margin-top: 16px;
+      text-align: right;
+    }
+    .form-actions button {
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 8px;
+      transition: background-color 0.3s;
+    }
+    .form-actions button[type="submit"] {
+      background-color: #7f142e;
+      color: #fff;
+    }
+    .form-actions button[type="submit"]:hover {
+      background-color: #5b0a1c;
+    }
+    .form-actions .cancel-btn {
+      background-color: #ccc;
+    }
+    .form-actions .cancel-btn:hover {
+      background-color: #aaa;
+    }
+
+    /* Стили для мини-игры */
+    .game-container {
+      background-color: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      text-align: center;
+      animation: slideIn 0.3s;
+    }
+    .game-container h2 {
+      margin-top: 0;
+      font-family: 'Palatino Linotype', serif;
+      font-size: 24px;
+      color: #7f142e;
+    }
+    .game-board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+      perspective: 1000px;
+    }
+    .game-card {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+      cursor: pointer;
+    }
+    .game-card.flipped {
+      transform: rotateY(180deg);
+    }
+    .game-card.matched {
+      cursor: default;
+      opacity: 0.5;
+    }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 36px;
+      border-radius: 5px;
+      transition: font-size 0.3s;
+    }
+    .card-front {
+      background: #fff;
+      color: #3b2e2a;
+      transform: rotateY(180deg);
+      border: 1px solid #eae1d9;
+    }
+    .card-back {
+      background: #7f142e;
+      color: #fff;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40" width="20" height="10"><path fill="rgba(255,255,255,0.1)" d="M40 20c10 0 10 20 20 20s10-20 20-20-10-20-20-20S30 0 40 20zM0 20c10 0 10 20 20 20s10-20 20-20-10-20-20-20S-10 0 0 20z"></path></svg>');
+    }
+    .game-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+    }
+    .game-controls button {
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      background-color: #7f142e;
+      color: #fff;
+    }
+    .game-controls button:hover {
+      background-color: #5b0a1c;
+    }
+    .game-controls .cancel-btn {
+      background-color: #ccc;
+      color: #333;
+    }
+    .game-controls .cancel-btn:hover {
+      background-color: #aaa;
+    }
+    
+    /* Стили для кнопок управления файлами */
+    .file-controls {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .file-controls button {
+        flex-grow: 1;
+        border: 1px solid #7f142e;
+        background-color: #fff;
+        color: #7f142e;
+        padding: 10px 15px;
+        border-radius: 4px;
+        font-size: 16px;
+        font-family: 'Georgia', serif;
+        cursor: pointer;
+        transition: background-color 0.3s, color 0.3s;
+    }
+    .file-controls button:hover {
+        background-color: #7f142e;
+        color: #fff;
+    }
+    
+    /* Адаптивный дизайн */
+    @media (max-width: 768px) {
+      .container {
+        margin: 20px auto;
+        padding: 0 15px;
+      }
+      .add-btn {
+        width: 55px;
+        height: 55px;
+        font-size: 28px;
+        bottom: 20px;
+        right: 20px;
+      }
+      #gameBtn {
+        bottom: 90px;
+        right: 20px;
+        font-size: 22px;
+      }
+      .card img {
+        height: 180px;
+      }
+      .game-board {
+        gap: 8px;
+      }
+      .card-face {
+        font-size: 28px;
+      }
+      .game-controls {
+        flex-direction: column;
+        gap: 15px;
+      }
+       .game-controls button {
+        width: 100%;
+       }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="file-controls">
+        <button id="loadBtn">📥 Загрузить карточки из папки</button>
+        <button id="saveAllBtn">💾 Сохранить все</button>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".json" style="display: none;">
+
+    <button id="addBtn" class="add-btn">+</button>
+    <button id="gameBtn" class="add-btn" style="bottom: 100px; font-size: 24px;">🍷</button>
+    
+    <div id="cardsContainer" class="cards-container"></div>
+  </div>
+
+  <template id="cardTemplate">
+    <div class="card" data-id="">
+      <img src="" alt="Фото бутылки">
+      <div class="card-content">
+        <p class="rating"></p>
+        <p class="dates"></p>
+        <p class="recipe"></p>
+      </div>
+      <div class="card-actions">
+        <button class="edit-btn">✎</button>
+        <button class="delete-btn">🗑</button>
+      </div>
+    </div>
+  </template>
+  
+  <!-- ИСПРАВЛЕНО: Полный код формы в шаблоне -->
+  <template id="formTemplate">
+    <div class="form-modal">
+      <form class="wine-form">
+        <h2>Запись вина</h2>
+        <label>Фото бутылки:</label>
+        <input type="file" accept="image/*" name="photo">
+        <label>Оценка (0-10):</label>
+        <input type="number" name="rating" min="0" max="10" required>
+        <label>Дата изготовления:</label>
+        <input type="date" name="productionDate" required>
+        <label>Дата вскрытия:</label>
+        <input type="date" name="openingDate">
+        <label>Рецепт:</label>
+        <textarea name="recipe" required></textarea>
+        <div class="form-actions">
+          <button type="submit">Сохранить</button>
+          <button type="button" class="cancel-btn">Отмена</button>
+        </div>
+      </form>
+    </div>
+  </template>
+  
+  <!-- ИСПРАВЛЕНО: Полный код модального окна игры -->
+  <div id="gameModal" class="form-modal" style="display: none;">
+    <div class="game-container">
+      <h2>Найди пару</h2>
+      <div id="gameBoard" class="game-board"></div>
+      <div class="game-controls">
+          <p>Ходы: <span id="movesCounter">0</span></p>
+          <button id="gameRestartBtn">Начать заново</button>
+          <button id="gameCloseBtn" class="cancel-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentWines = [];
+
+    function downloadJson(object, filename) {
+      const jsonString = JSON.stringify(object, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    const cardsContainer = document.getElementById('cardsContainer');
+    const loadBtn = document.getElementById('loadBtn');
+    const saveAllBtn = document.getElementById('saveAllBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    loadBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    saveAllBtn.addEventListener('click', () => {
+        if (currentWines.length === 0) {
+            alert('Нет карточек для сохранения.');
+            return;
+        }
+        // ИСПРАВЛЕНО: Более четкое объяснение для пользователя
+        alert(`ВНИМАНИЕ!\n\nСейчас браузер сохранит ${currentWines.length} файлов. В окне "Сохранить как..." все файлы сохранятся в загрузки, затем вы можете выбрать папку (например, C:\\vine\\cards) и перенести его туда, чтобы все файлы находились в одном месте.`);
+        currentWines.forEach(wine => {
+            const filename = `wine-card-${wine.id}.json`;
+            downloadJson(wine, filename);
+        });
+    });
+
+    fileInput.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        const readPromises = Array.from(files).map(file => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        // Проверяем, что парсинг прошел успешно
+                        const parsed = JSON.parse(e.target.result);
+                        if (typeof parsed !== 'object' || parsed === null) {
+                            throw new Error('Файл не содержит корректный JSON объект.');
+                        }
+                        resolve(parsed);
+                    } catch (error) {
+                        reject(new Error(`Ошибка в файле "${file.name}": ${error.message}`));
+                    }
+                };
+                reader.onerror = e => reject(e);
+                reader.readAsText(file);
+            });
+        });
+
+        Promise.all(readPromises)
+            .then(wines => {
+                currentWines = wines;
+                renderCards();
+                alert(`Загружено ${wines.length} карточек.`);
+            })
+            .catch(error => {
+                alert('Ошибка при чтении файла. Убедитесь, что это корректный JSON-файл.\n\n' + error);
+            });
+        
+        event.target.value = '';
+    });
+
+    function renderCards() {
+      cardsContainer.innerHTML = '';
+      currentWines.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+
+      currentWines.forEach(wine => {
+        const tpl = document.getElementById('cardTemplate');
+        const card = tpl.content.cloneNode(true);
+        const el = card.querySelector('.card');
+        el.dataset.id = wine.id;
+        card.querySelector('img').src = wine.photo || '';
+        card.querySelector('.rating').textContent = `Оценка: ${wine.rating}/10`;
+        card.querySelector('.dates').textContent = wine.productionDate
+          ? `Изготовлено: ${new Date(wine.productionDate).toLocaleDateString('ru-RU')}` +
+            (wine.openingDate ? `, Вскрыто: ${new Date(wine.openingDate).toLocaleDateString('ru-RU')}` : '')
+          : '';
+        card.querySelector('.recipe').textContent = `Рецепт:\n${wine.recipe}`;
+        
+        card.querySelector('.edit-btn').addEventListener('click', () => openForm(wine));
+        card.querySelector('.delete-btn').addEventListener('click', () => {
+          if (confirm('Удалить эту карточку из текущего списка?\n\nВнимание: чтобы удаление стало постоянным, не забудьте нажать "Сохранить все" и вручную удалить старый файл с диска.')) {
+            currentWines = currentWines.filter(w => w.id !== wine.id);
+            renderCards();
+          }
+        });
+        cardsContainer.appendChild(card);
+      });
+    }
+
+    const addBtn = document.getElementById('addBtn');
+    addBtn.addEventListener('click', () => openForm());
+
+    function openForm(editWine) {
+      const tpl = document.getElementById('formTemplate');
+      const modal = tpl.content.cloneNode(true);
+      const formEl = modal.querySelector('form');
+      document.body.appendChild(modal);
+
+      if (editWine) {
+          formEl.elements['rating'].value = editWine.rating;
+          formEl.elements['productionDate'].value = editWine.productionDate;
+          formEl.elements['openingDate'].value = editWine.openingDate;
+          formEl.elements['recipe'].value = editWine.recipe;
+      }
+
+      formEl.querySelector('.cancel-btn').addEventListener('click', () => {
+          document.body.removeChild(formEl.closest('.form-modal'));
+      });
+      
+      formEl.addEventListener('submit', e => {
+        e.preventDefault();
+        const fileInput = formEl.elements['photo'];
+        const rating = formEl.elements['rating'].value;
+        const productionDate = formEl.elements['productionDate'].value;
+        const openingDate = formEl.elements['openingDate'].value;
+        const recipe = formEl.elements['recipe'].value;
+        const id = editWine ? editWine.id : Date.now().toString();
+        
+        const handleData = (photoData) => {
+          const newWine = { id, photo: photoData, rating, productionDate, openingDate, recipe };
+          
+          if (editWine) {
+              const index = currentWines.findIndex(w => w.id === id);
+              if (index !== -1) {
+                  // ИСПРАВЛЕНО: Если фото не менялось, используем старое фото из данных в памяти
+                  if (!photoData) newWine.photo = currentWines[index].photo;
+                  currentWines[index] = newWine;
+              }
+          } else {
+              currentWines.push(newWine);
+          }
+
+          renderCards();
+          document.body.removeChild(formEl.closest('.form-modal'));
+        };
+
+        if (fileInput.files && fileInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = () => handleData(reader.result);
+          reader.readAsDataURL(fileInput.files[0]);
+        } else {
+          // ИСПРАВЛЕНО: Если фото не выбрано, используем фото из редактируемой карточки или пустую строку для новой
+          handleData(editWine ? editWine.photo : '');
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', renderCards);
+
+    // === КОД МИНИ-ИГРЫ (БЕЗ ИЗМЕНЕНИЙ) ===
+    const gameBtn = document.getElementById('gameBtn');
+    const gameModal = document.getElementById('gameModal');
+    const gameCloseBtn = document.getElementById('gameCloseBtn');
+    const gameRestartBtn = document.getElementById('gameRestartBtn');
+    const gameBoard = document.getElementById('gameBoard');
+    const movesCounter = document.getElementById('movesCounter');
+    const EMOJIS = ['🍇', '🍷', '🍾', '🧀', '🥖', '🌳', '☀️', '💧'];
+    const CARDS_CONTENT = [...EMOJIS, ...EMOJIS];
+    let flippedCards = [];
+    let lockBoard = false;
+    let matchesFound = 0;
+    let moves = 0;
+
+    function shuffle(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
+    function initializeGame() { gameBoard.innerHTML = ''; flippedCards = []; lockBoard = false; matchesFound = 0; moves = 0; movesCounter.textContent = moves; shuffle(CARDS_CONTENT); CARDS_CONTENT.forEach(emoji => { const cardElement = document.createElement('div'); cardElement.classList.add('game-card'); cardElement.dataset.emoji = emoji; cardElement.innerHTML = `<div class="card-face card-front">${emoji}</div><div class="card-face card-back"></div>`; cardElement.addEventListener('click', flipCard); gameBoard.appendChild(cardElement); }); }
+    function flipCard() { if (lockBoard || this.classList.contains('flipped')) return; this.classList.add('flipped'); flippedCards.push(this); if (flippedCards.length === 2) { lockBoard = true; moves++; movesCounter.textContent = moves; checkForMatch(); } }
+    function checkForMatch() { const [firstCard, secondCard] = flippedCards; const isMatch = firstCard.dataset.emoji === secondCard.dataset.emoji; isMatch ? disableCards() : unflipCards(); }
+    function disableCards() { const [firstCard, secondCard] = flippedCards; firstCard.removeEventListener('click', flipCard); secondCard.removeEventListener('click', flipCard); firstCard.classList.add('matched'); secondCard.classList.add('matched'); matchesFound++; if (matchesFound === EMOJIS.length) { setTimeout(() => alert(`Поздравляем! Вы нашли все пары за ${moves} ходов!`), 500); } resetBoard(); }
+    function unflipCards() { setTimeout(() => { flippedCards.forEach(card => card.classList.remove('flipped')); resetBoard(); }, 1000); }
+    function resetBoard() { [flippedCards, lockBoard] = [[], false]; }
+    gameBtn.addEventListener('click', () => { gameModal.style.display = 'flex'; initializeGame(); });
+    gameCloseBtn.addEventListener('click', () => { gameModal.style.display = 'none'; });
+    gameRestartBtn.addEventListener('click', initializeGame);
+  </script>
+</body>
+</html>
