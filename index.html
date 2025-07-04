@@ -75,6 +75,28 @@
       margin: 8px 0;
       line-height: 1.4;
     }
+    /* Специальные стили для текста инструкции */
+    .card-content .instruction-text {
+        font-size: 15px;
+    }
+    .card-content .instruction-text strong {
+        color: #5b0a1c;
+    }
+    .card-content .instruction-text code {
+        background-color: #f0e9e0;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+    .card-content .instruction-text ol {
+        padding-left: 20px; 
+        margin: 8px 0; 
+        line-height: 1.6;
+    }
+    .card-content .instruction-text li {
+        margin-bottom: 8px;
+    }
+
     .card-actions {
       display: flex;
       justify-content: space-between;
@@ -334,10 +356,10 @@
 <body>
   <div class="container">
     <div class="file-controls">
-        <button id="loadBtn">📥 Загрузить карточки из папки</button>
-        <button id="saveAllBtn">💾 Сохранить все</button>
+        <button id="loadBtn">📥 Загрузить (для бэкапа)</button>
+        <button id="saveAllBtn">💾 Сохранить все (для бэкапа)</button>
     </div>
-    <input type="file" id="fileInput" multiple accept=".json" style="display: none;">
+    <input type="file" id="fileInput" accept=".json" style="display: none;">
 
     <button id="addBtn" class="add-btn">+</button>
     <button id="gameBtn" class="add-btn" style="bottom: 100px; font-size: 24px;">🍷</button>
@@ -395,7 +417,45 @@
   </div>
 
   <script>
+    const defaultInstructionCard = {
+      id: 'default-instructions-001',
+      photo: 'SuperVine.png',
+      isInstruction: true,
+      recipe: `
+        <div class="instruction-text">
+            <strong>👋 Добро пожаловать!</strong>
+            <p>Ваши карточки теперь сохраняются автоматически в браузере!</p>
+            <strong>Порядок работы:</strong>
+            <ol>
+                <li>Создавайте и редактируйте карточки, все изменения сохраняются налету.</li>
+                <li>При перезагрузке страницы ваши данные останутся на месте.</li>
+                <li style="color: #c1272d;"><strong>Для резервных копий:</strong><br>Используйте кнопки "Сохранить все" и "Загрузить", чтобы переносить данные между компьютерами или просто делать бэкап.</li>
+            </ol>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 16px 0;">
+            <strong>🖼️ Картинка этой карточки</strong>
+            <p>Чтобы поменять картинку, просто положите файл с именем <code>SuperVine.png</code> (или любое другое, но тогда измените имя в коде) в ту же папку, где лежит этот файл <code>index.html</code>.</p>
+        </div>
+      `
+    };
+    
     let currentWines = [];
+
+    function saveCardsToLocalStorage() {
+        localStorage.setItem('wineryCards', JSON.stringify(currentWines));
+    }
+
+    function loadCardsOnStartup() {
+        const savedCardsJSON = localStorage.getItem('wineryCards');
+        if (savedCardsJSON) {
+            currentWines = JSON.parse(savedCardsJSON);
+        }
+
+        if (currentWines.length === 0) {
+            currentWines.push(defaultInstructionCard);
+        }
+        
+        renderCards();
+    }
 
     function downloadJson(object, filename) {
       const jsonString = JSON.stringify(object, null, 2);
@@ -420,88 +480,112 @@
     });
 
     saveAllBtn.addEventListener('click', () => {
-        if (currentWines.length === 0) {
+        const winesToSave = currentWines.filter(wine => !wine.isInstruction);
+        if (winesToSave.length === 0) {
             alert('Нет карточек для сохранения.');
             return;
         }
-        alert(`ВНИМАНИЕ!\n\nСейчас браузер сохранит ${currentWines.length} файлов. В окне "Сохранить как..." все файлы сохранятся в загрузки, затем вы можете выбрать папку (например, C:\\vine\\cards) и перенести его туда, чтобы все файлы находились в одном месте.`);
-        currentWines.forEach(wine => {
-            const filename = `wine-card-${wine.id}.json`;
-            downloadJson(wine, filename);
-        });
+
+        const cardsCount = winesToSave.length;
+        const dateStamp = new Date().toISOString().split('T')[0];
+        const filename = `winery-backup-${cardsCount}-cards-${dateStamp}.json`;
+        
+        alert(`Готовим бэкап...\n\nКоличество карточек: ${cardsCount}\nИмя файла: ${filename}`);
+        
+        downloadJson(winesToSave, filename);
     });
 
     fileInput.addEventListener('change', (event) => {
-        const files = event.target.files;
-        if (!files || files.length === 0) return;
+        const file = event.target.files[0];
+        if (!file) return;
 
-        const readPromises = Array.from(files).map(file => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    try {
-                        const parsed = JSON.parse(e.target.result);
-                        if (typeof parsed !== 'object' || parsed === null) {
-                            throw new Error('Файл не содержит корректный JSON объект.');
-                        }
-                        resolve(parsed);
-                    } catch (error) {
-                        reject(new Error(`Ошибка в файле "${file.name}": ${error.message}`));
-                    }
-                };
-                reader.onerror = e => reject(e);
-                reader.readAsText(file);
-            });
-        });
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const parsedData = JSON.parse(e.target.result);
+                const loadedWines = Array.isArray(parsedData) ? parsedData : [parsedData];
 
-        Promise.all(readPromises)
-            .then(loadedWines => {
-                // *** НАЧАЛО ИСПРАВЛЕНИЯ ***
-
-                // 1. Создаем набор ID из загруженных файлов для быстрой проверки.
-                const loadedWineIds = new Set(loadedWines.map(w => w.id));
-
-                // 2. Находим несохраненные карточки: фильтруем текущий массив,
-                //    оставляя только те, чьих ID нет в загруженных файлах.
-                const unsavedNewCards = currentWines.filter(w => !loadedWineIds.has(w.id));
-
-                // 3. Объединяем загруженные карточки с новыми несохраненными.
-                currentWines = [...loadedWines, ...unsavedNewCards];
-
-                // *** КОНЕЦ ИСПРАВЛЕНИЯ ***
+                if (!loadedWines.every(item => typeof item === 'object' && item !== null && 'id' in item)) {
+                  throw new Error('Файл содержит некорректные данные. Ожидался объект карточки или их массив.');
+                }
+                
+                const instructionCard = currentWines.find(w => w.isInstruction);
+                const existingRealWines = currentWines.filter(w => !w.isInstruction);
+                const wineMap = new Map(existingRealWines.map(wine => [wine.id, wine]));
+                
+                loadedWines.forEach(wine => {
+                    wineMap.set(wine.id, wine);
+                });
+                
+                let newRealWinesList = Array.from(wineMap.values());
+                
+                if (newRealWinesList.length === 0 && instructionCard) {
+                    currentWines = [instructionCard];
+                } else if (newRealWinesList.length === 0 && !instructionCard) {
+                    currentWines = [defaultInstructionCard];
+                } else if (instructionCard) {
+                    currentWines = [instructionCard, ...newRealWinesList];
+                } else {
+                    currentWines = newRealWinesList;
+                }
 
                 renderCards();
-                alert(`Загружено ${loadedWines.length} карточек. Несохраненные карточки также остались на экране.`);
-            })
-            .catch(error => {
-                alert('Ошибка при чтении файла. Убедитесь, что это корректный JSON-файл.\n\n' + error);
-            });
+                saveCardsToLocalStorage();
+                alert(`Загружено/обновлено ${loadedWines.length} карточек. Данные сохранены в браузере.`);
+            } catch (error) {
+                alert('Ошибка при чтении файла. Убедитесь, что это корректный JSON-файл.\n\n' + error.message);
+            }
+        };
+        reader.onerror = () => {
+             alert('Не удалось прочитать файл.');
+        };
+        reader.readAsText(file);
         
         event.target.value = '';
     });
 
     function renderCards() {
       cardsContainer.innerHTML = '';
-      currentWines.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+      currentWines.sort((a, b) => {
+          if (a.isInstruction) return -1; // Инструкция всегда первая
+          if (b.isInstruction) return 1;
+          return parseInt(b.id) - parseInt(a.id); // Остальные по дате (от новых к старым)
+      });
 
       currentWines.forEach(wine => {
         const tpl = document.getElementById('cardTemplate');
         const card = tpl.content.cloneNode(true);
         const el = card.querySelector('.card');
+        const editBtn = card.querySelector('.edit-btn');
+        const deleteBtn = card.querySelector('.delete-btn');
+        
         el.dataset.id = wine.id;
         card.querySelector('img').src = wine.photo || '';
-        card.querySelector('.rating').textContent = `Оценка: ${wine.rating}/10`;
-        card.querySelector('.dates').textContent = wine.productionDate
-          ? `Изготовлено: ${new Date(wine.productionDate).toLocaleDateString('ru-RU')}` +
-            (wine.openingDate ? `, Вскрыто: ${new Date(wine.openingDate).toLocaleDateString('ru-RU')}` : '')
-          : '';
-        card.querySelector('.recipe').textContent = `Рецепт:\n${wine.recipe}`;
         
-        card.querySelector('.edit-btn').addEventListener('click', () => openForm(wine));
-        card.querySelector('.delete-btn').addEventListener('click', () => {
-          if (confirm('Удалить эту карточку из текущего списка?\n\nВнимание: чтобы удаление стало постоянным, не забудьте нажать "Сохранить все" и вручную удалить старый файл с диска.')) {
+        if (wine.isInstruction) {
+            card.querySelector('.rating').style.display = 'none';
+            card.querySelector('.dates').style.display = 'none';
+            card.querySelector('.recipe').innerHTML = wine.recipe;
+            editBtn.style.display = 'none'; // Нельзя редактировать инструкцию
+        } else {
+            card.querySelector('.rating').textContent = `Оценка: ${wine.rating}/10`;
+            card.querySelector('.dates').textContent = wine.productionDate
+              ? `Изготовлено: ${new Date(wine.productionDate).toLocaleDateString('ru-RU')}` +
+                (wine.openingDate ? `, Вскрыто: ${new Date(wine.openingDate).toLocaleDateString('ru-RU')}` : '')
+              : '';
+            card.querySelector('.recipe').textContent = `Рецепт:\n${wine.recipe}`;
+            editBtn.addEventListener('click', () => openForm(wine));
+        }
+        
+        deleteBtn.addEventListener('click', () => {
+          if (confirm('Удалить эту карточку?')) {
             currentWines = currentWines.filter(w => w.id !== wine.id);
+            // Если после удаления не осталось ни одной карточки, добавляем инструкцию обратно
+            if (currentWines.length === 0) {
+                 currentWines.push(defaultInstructionCard);
+            }
             renderCards();
+            saveCardsToLocalStorage();
           }
         });
         cardsContainer.appendChild(card);
@@ -547,10 +631,12 @@
                   currentWines[index] = newWine;
               }
           } else {
+              // --- ИСПРАВЛЕНО: Просто добавляем новую карточку, не удаляя инструкцию ---
               currentWines.push(newWine);
           }
 
           renderCards();
+          saveCardsToLocalStorage();
           document.body.removeChild(formEl.closest('.form-modal'));
         };
 
@@ -564,9 +650,9 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', renderCards);
+    document.addEventListener('DOMContentLoaded', loadCardsOnStartup);
 
-    // === КОД МИНИ-ИГРЫ (БЕЗ ИЗМЕНЕНИЙ) ===
+    // === КОД МИНИ-ИГРЫ (без изменений) ===
     const gameBtn = document.getElementById('gameBtn');
     const gameModal = document.getElementById('gameModal');
     const gameCloseBtn = document.getElementById('gameCloseBtn');
