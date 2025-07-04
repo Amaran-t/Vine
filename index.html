@@ -360,7 +360,6 @@
     </div>
   </template>
   
-  <!-- ИСПРАВЛЕНО: Полный код формы в шаблоне -->
   <template id="formTemplate">
     <div class="form-modal">
       <form class="wine-form">
@@ -383,7 +382,6 @@
     </div>
   </template>
   
-  <!-- ИСПРАВЛЕНО: Полный код модального окна игры -->
   <div id="gameModal" class="form-modal" style="display: none;">
     <div class="game-container">
       <h2>Найди пару</h2>
@@ -426,7 +424,6 @@
             alert('Нет карточек для сохранения.');
             return;
         }
-        // ИСПРАВЛЕНО: Более четкое объяснение для пользователя
         alert(`ВНИМАНИЕ!\n\nСейчас браузер сохранит ${currentWines.length} файлов. В окне "Сохранить как..." все файлы сохранятся в загрузки, затем вы можете выбрать папку (например, C:\\vine\\cards) и перенести его туда, чтобы все файлы находились в одном месте.`);
         currentWines.forEach(wine => {
             const filename = `wine-card-${wine.id}.json`;
@@ -443,7 +440,6 @@
                 const reader = new FileReader();
                 reader.onload = e => {
                     try {
-                        // Проверяем, что парсинг прошел успешно
                         const parsed = JSON.parse(e.target.result);
                         if (typeof parsed !== 'object' || parsed === null) {
                             throw new Error('Файл не содержит корректный JSON объект.');
@@ -459,10 +455,23 @@
         });
 
         Promise.all(readPromises)
-            .then(wines => {
-                currentWines = wines;
+            .then(loadedWines => {
+                // *** НАЧАЛО ИСПРАВЛЕНИЯ ***
+
+                // 1. Создаем набор ID из загруженных файлов для быстрой проверки.
+                const loadedWineIds = new Set(loadedWines.map(w => w.id));
+
+                // 2. Находим несохраненные карточки: фильтруем текущий массив,
+                //    оставляя только те, чьих ID нет в загруженных файлах.
+                const unsavedNewCards = currentWines.filter(w => !loadedWineIds.has(w.id));
+
+                // 3. Объединяем загруженные карточки с новыми несохраненными.
+                currentWines = [...loadedWines, ...unsavedNewCards];
+
+                // *** КОНЕЦ ИСПРАВЛЕНИЯ ***
+
                 renderCards();
-                alert(`Загружено ${wines.length} карточек.`);
+                alert(`Загружено ${loadedWines.length} карточек. Несохраненные карточки также остались на экране.`);
             })
             .catch(error => {
                 alert('Ошибка при чтении файла. Убедитесь, что это корректный JSON-файл.\n\n' + error);
@@ -534,7 +543,6 @@
           if (editWine) {
               const index = currentWines.findIndex(w => w.id === id);
               if (index !== -1) {
-                  // ИСПРАВЛЕНО: Если фото не менялось, используем старое фото из данных в памяти
                   if (!photoData) newWine.photo = currentWines[index].photo;
                   currentWines[index] = newWine;
               }
@@ -551,7 +559,6 @@
           reader.onload = () => handleData(reader.result);
           reader.readAsDataURL(fileInput.files[0]);
         } else {
-          // ИСПРАВЛЕНО: Если фото не выбрано, используем фото из редактируемой карточки или пустую строку для новой
           handleData(editWine ? editWine.photo : '');
         }
       });
